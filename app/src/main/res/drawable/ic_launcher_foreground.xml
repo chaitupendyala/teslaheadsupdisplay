@@ -1,0 +1,37 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer Glow (Faded Cyan) -->
+    <path
+        android:strokeColor="#4D00FFFF"
+        android:strokeWidth="10"
+        android:strokeLineCap="round"
+        android:pathData="M 30,74 A 32,32 0 1 1 80,28" />
+
+    <!-- Main Outer Arc (Solid Cyan) -->
+    <path
+        android:strokeColor="#00FFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M 30,74 A 32,32 0 1 1 80,28" />
+
+    <!-- Inner Arc -->
+    <path
+        android:strokeColor="#00FFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M 40,64 A 20,20 0 1 1 68,36" />
+
+    <!-- Digital "6" -->
+    <path
+        android:fillColor="#00FFFF"
+        android:pathData="M40,48 h12 v2 h-12 v10 h12 v-2 h-10 v-2 h10 v-6 h-12 z M42,54 h4 v2 h-4 z" />
+
+    <!-- Digital "5" -->
+    <path
+        android:fillColor="#00FFFF"
+        android:pathData="M56,48 h12 v2 h-12 v2 h12 v6 h-12 v-2 h10 v-2 h-10 z" />
+</vector>
