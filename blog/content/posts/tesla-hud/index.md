@@ -6,7 +6,9 @@ tags: ["android", "kotlin", "jetpack-compose", "side-project"]
 description: "How I turned an old phone into a Tesla-style heads-up display that shows speed, speed limits, and battery info while I drive."
 ---
 
-So I had an old Android phone sitting in a drawer doing nothing, and I thought, why not make it useful? That's basically how this project started. I wanted something I could mount on my dashboard that would show me my speed, the speed limit on whatever road I'm on, and a few other bits of info, all in a clean display that's easy to glance at while driving. I called it the Tesla Heads-Up Display, because the design is inspired by Tesla's minimal, no-clutter UI.
+Here's something that used to bother me every time I drove. Whenever I wanted to check my speed, see what road I was on, or find out the speed limit, I had to take my eyes off the road and look down at my phone screen. It sounds small, but it happens constantly, and every time you look away, even for a second, it's a risk. That frustration is what pushed me to build this.
+
+I had an old Android phone sitting in a drawer doing nothing, and I thought, why not mount it on the dashboard and turn it into a proper heads-up display? Something that puts all the info I need right in front of me, easy to glance at without looking away from the road. I called it the Tesla Heads-Up Display, because the design is inspired by Tesla's minimal, no-clutter UI.
 
 Here's how it looks in day mode and night mode:
 
@@ -99,6 +101,8 @@ Also, Room migrations. I didn't set those up properly at first and had to nuke t
 
 ## Try It Yourself
 
-The full source is on GitHub. You'll need a Google Maps API key with the Roads API and Geocoding API enabled. Add your key to `local.properties`, build, and you're good to go. Mount your phone on the dashboard, and you've got yourself a HUD.
+The full source is on GitHub: [chaitupendyala/teslaheadsupdisplay](https://github.com/chaitupendyala/teslaheadsupdisplay)
+
+You'll need a Google Maps API key with the Roads API and Geocoding API enabled. Add your key to `local.properties`, build, and you're good to go. Mount your phone on the dashboard, and you've got yourself a HUD.
 
 It's one of those projects that I use every single day now, which is rare for side projects. If you drive a lot and like having clean data in front of you, give it a try.
