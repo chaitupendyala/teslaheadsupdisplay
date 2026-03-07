@@ -6,8 +6,10 @@ import android.util.Log
 import android.widget.Toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 
 data class RoadInfo(
@@ -22,13 +24,8 @@ object SpeedLimitRepo {
     private var lastRequestLat = 0.0
     private var lastRequestLon = 0.0
     private var lastRoadInfo: RoadInfo = RoadInfo(null, null)
-    private var lastPlaceId: String? = null
 
     private val API_KEY = BuildConfig.MAPS_API_KEY
-    private const val PACKAGE_NAME = "com.chaitalkstech.teslaheadsupdisplay"
-    
-    // TODO: Replace this with your actual SHA-1 fingerprint from ./gradlew signingReport
-    private const val SHA1_FINGERPRINT = "YOUR_SHA1_FINGERPRINT_HERE"
 
     private suspend fun logToDb(context: Context, tag: String, message: String, responseCode: Int? = null, error: String? = null) {
         val logMsg = "[$tag] Code: $responseCode | Msg: $message" + (if (error != null) " | Err: $error" else "")
@@ -74,89 +71,86 @@ object SpeedLimitRepo {
                 }
 
                 var newLimit: String? = null
-                var newPlaceId: String? = null
+                var osmRoadName: String? = null
+                var osmWayId: Long? = null
 
-                // 1. Roads API Request
-                val roadsUrl = "https://roads.googleapis.com/v1/speedLimits?path=$lat,$lon&key=$API_KEY"
-                logToDb(context, "RoadsAPI", "Requesting Speed Limit...")
-                
-                val roadsRequest = Request.Builder()
-                    .url(roadsUrl)
-                    .addHeader("X-Android-Package", PACKAGE_NAME)
-                    .addHeader("X-Android-Cert", SHA1_FINGERPRINT)
+                // 1. Overpass API Request (replaces Roads API)
+                val overpassQuery = "[out:json][timeout:10];way(around:30,$lat,$lon)[highway][maxspeed];out body 1;"
+                val requestBody = overpassQuery.toRequestBody("text/plain".toMediaType())
+                val overpassRequest = Request.Builder()
+                    .url("https://overpass-api.de/api/interpreter")
+                    .post(requestBody)
                     .build()
 
-                client.newCall(roadsRequest).execute().use { response ->
+                logToDb(context, "OverpassAPI", "Requesting OSM road data...")
+
+                client.newCall(overpassRequest).execute().use { response ->
                     val bodyString = response.body?.string()
-                    logToDb(context, "RoadsAPI", "Response Body: $bodyString", response.code)
-                    
+                    logToDb(context, "OverpassAPI", "Response Body: $bodyString", response.code)
                     if (response.isSuccessful) {
                         val json = JSONObject(bodyString ?: "{}")
-                        val speedLimits = json.optJSONArray("speedLimits")
-                        if (speedLimits != null && speedLimits.length() > 0) {
-                            val limitObj = speedLimits.getJSONObject(0)
-                            newPlaceId = limitObj.optString("placeId")
-                            val limit = limitObj.optDouble("speedLimit")
-                            val units = limitObj.optString("units")
-                            newLimit = if (units == "KPH") (limit * 0.621371).toInt().toString() else limit.toInt().toString()
+                        val elements = json.optJSONArray("elements")
+                        if (elements != null && elements.length() > 0) {
+                            val element = elements.getJSONObject(0)
+                            osmWayId = element.optLong("id")
+                            val tags = element.optJSONObject("tags")
+                            if (tags != null) {
+                                osmRoadName = tags.optString("name").takeIf { it.isNotBlank() }
+                                val maxspeed = tags.optString("maxspeed")
+                                if (maxspeed.isNotBlank()) {
+                                    newLimit = parseMaxspeed(maxspeed)
+                                }
+                            }
                         }
                     }
                 }
 
-                // 2. Geocoding API Request
-                var newRoadName: String? = null
-                val geoUrl = if (newPlaceId != null) {
-                    "https://maps.googleapis.com/maps/api/geocode/json?place_id=$newPlaceId&key=$API_KEY"
-                } else {
-                    "https://maps.googleapis.com/maps/api/geocode/json?latlng=$lat,$lon&key=$API_KEY"
-                }
+                // 2. Geocoding API fallback for road name when OSM has none
+                var newRoadName: String? = osmRoadName
 
-                logToDb(context, "GeocodingAPI", "Requesting Road Name...")
-                val geoRequest = Request.Builder()
-                    .url(geoUrl)
-                    .addHeader("X-Android-Package", PACKAGE_NAME)
-                    .addHeader("X-Android-Cert", SHA1_FINGERPRINT)
-                    .build()
-
-                client.newCall(geoRequest).execute().use { response ->
-                    val bodyString = response.body?.string()
-                    logToDb(context, "GeocodingAPI", "Response Body: $bodyString", response.code)
-                    
-                    if (response.isSuccessful) {
-                        val json = JSONObject(bodyString ?: "{}")
-                        val resultsArr = json.optJSONArray("results")
-                        if (resultsArr != null && resultsArr.length() > 0) {
-                            val resultObj = resultsArr.getJSONObject(0)
-                            val addressComponents = resultObj.optJSONArray("address_components")
-                            if (addressComponents != null) {
-                                for (i in 0 until addressComponents.length()) {
-                                    val comp = addressComponents.getJSONObject(i)
-                                    val types = comp.optJSONArray("types")
-                                    if (types != null) {
-                                        for (j in 0 until types.length()) {
-                                            if (types.getString(j) == "route") {
-                                                newRoadName = comp.optString("short_name")
-                                                break
+                if (newRoadName == null) {
+                    val geoUrl = "https://maps.googleapis.com/maps/api/geocode/json?latlng=$lat,$lon&key=$API_KEY"
+                    logToDb(context, "GeocodingAPI", "OSM had no road name, requesting via Geocoding...")
+                    val geoRequest = Request.Builder().url(geoUrl).build()
+                    client.newCall(geoRequest).execute().use { response ->
+                        val bodyString = response.body?.string()
+                        logToDb(context, "GeocodingAPI", "Response Body: $bodyString", response.code)
+                        if (response.isSuccessful) {
+                            val json = JSONObject(bodyString ?: "{}")
+                            val resultsArr = json.optJSONArray("results")
+                            if (resultsArr != null && resultsArr.length() > 0) {
+                                val resultObj = resultsArr.getJSONObject(0)
+                                val addressComponents = resultObj.optJSONArray("address_components")
+                                if (addressComponents != null) {
+                                    for (i in 0 until addressComponents.length()) {
+                                        val comp = addressComponents.getJSONObject(i)
+                                        val types = comp.optJSONArray("types")
+                                        if (types != null) {
+                                            for (j in 0 until types.length()) {
+                                                if (types.getString(j) == "route") {
+                                                    newRoadName = comp.optString("short_name")
+                                                    break
+                                                }
                                             }
                                         }
+                                        if (newRoadName != null) break
                                     }
-                                    if (newRoadName != null) break
                                 }
-                            }
-                            if (newRoadName == null) {
-                                newRoadName = resultObj.optString("formatted_address").split(",").firstOrNull()
+                                if (newRoadName == null) {
+                                    newRoadName = resultObj.optString("formatted_address").split(",").firstOrNull()
+                                }
                             }
                         }
                     }
                 }
 
                 val roadInfo = RoadInfo(newLimit, newRoadName, isFromCache = false)
-                
+
                 if (newLimit != null || newRoadName != null) {
+                    val cacheKey = if (osmWayId != null) "osm_way_$osmWayId" else "lat_${lat}_lon_$lon"
                     val db = AppDatabase.getDatabase(context)
-                    db.roadDataDao().insertRoadData(RoadData(newPlaceId ?: "lat_${lat}_lon_$lon", newLimit, newRoadName))
+                    db.roadDataDao().insertRoadData(RoadData(cacheKey, newLimit, newRoadName))
                     lastRoadInfo = roadInfo
-                    lastPlaceId = newPlaceId
                 }
 
                 roadInfo

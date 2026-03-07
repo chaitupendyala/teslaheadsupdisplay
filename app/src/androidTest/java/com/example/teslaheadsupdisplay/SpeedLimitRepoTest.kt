@@ -10,27 +10,38 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class SpeedLimitRepoTest {
 
+    // Hillcrest Drive, Austin TX — confirmed to return a road name via Overpass/Geocoding
+    private val lat = 30.3182029
+    private val lon = -97.6970964
+
+    /**
+     * Verifies the full API pipeline (Overpass + Geocoding fallback) returns a road name.
+     * Speed limit parsing logic is covered separately in ParseMaxspeedTest (JVM unit tests).
+     */
     @Test
-    fun testGetRoadData_RealApiCall() = runBlocking {
+    fun testOverpassOrGeocodingReturnsRoadName() {
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        
-        // Coordinates for Cameron Rd in Austin (Highly likely to have speed limit data)
-        val lat = 30.316214
-        val lon = -97.700922
-        val speed = 65
+        val result = runBlocking {
+            SpeedLimitRepo.getRoadData(appContext, lat, lon, 30, forceRefresh = true)
+        }
+        println("DEBUG: speedLimit=${result.speedLimit}, roadName=${result.roadName}")
+        assertNotNull("Should return a road name (via Overpass or Geocoding fallback)", result.roadName)
+        assertTrue("Road name should not be blank", result.roadName!!.isNotBlank())
+    }
 
-        // Force refresh to trigger real API calls
-        val result = SpeedLimitRepo.getRoadData(appContext, lat, lon, speed, forceRefresh = true)
-
-        assertNotNull("Result should not be null", result)
-        
-        println("DEBUG: API Key used: ${BuildConfig.MAPS_API_KEY.take(5)}...")
-        println("DEBUG: Speed Limit: ${result.speedLimit}, Road Name: ${result.roadName}")
-        
-        // Check if either is populated. If both are null, the API call likely failed or returned empty.
-        assertTrue(
-            "Expected speed limit or road name. Check Logcat for 'RoadsAPI' or 'GeocodingAPI' entries to see the raw response.",
-            result.speedLimit != null || result.roadName != null
-        )
+    /**
+     * If Overpass returns a speed limit, it must be a valid parseable integer string.
+     * This test is a no-op when Overpass has no maxspeed tag for this location (speedLimit stays null).
+     */
+    @Test
+    fun testSpeedLimitIfPresentIsValidInteger() {
+        val appContext = InstrumentationRegistry.getInstrumentation().targetContext
+        val result = runBlocking {
+            SpeedLimitRepo.getRoadData(appContext, lat, lon, 30, forceRefresh = true)
+        }
+        println("DEBUG: speedLimit=${result.speedLimit}, roadName=${result.roadName}")
+        result.speedLimit?.let { limit ->
+            assertNotNull("speedLimit '$limit' must be a parseable integer", limit.toIntOrNull())
+        }
     }
 }
