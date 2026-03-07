@@ -17,7 +17,7 @@ A modern, highly-responsive Heads-Up Display (HUD) Android application designed 
 ## ✨ Features
 
 - **Real-Time Speedometer:** Calculates exact vehicle speed using the Fused Location Provider.
-- **Dynamic Speed Limits & Road Names:** Integrates with the Google Maps Roads API and Geocoding API to dynamically display the current road name and speed limit. Changes color and emits an auditory warning if you exceed the limit.
+- **Dynamic Speed Limits & Road Names:** Integrates with the Overpass API (OpenStreetMap) to efficiently retrieve speed limits, quickly falling back to the Google Maps Geocoding API to dynamically display the current road name if missing. Changes color and emits an auditory warning if you exceed the limit.
 - **Smart Telemetry:** Displays phone battery percentage, charging state, compass heading, and device thermal temperature.
 - **Auto Dark/Light Mode:** Uses the device's ambient light sensor to seamlessly switch between Day and Night modes depending on lighting conditions, reducing eye strain at night.
 - **Bluetooth Auto-Launch:** Automatically detects and launches the app when your device connects to your car's Bluetooth (configurable, default: `"Chai's Tesla"`).
@@ -52,7 +52,6 @@ The application is built using modern Android development practices:
 1. **Android Studio** (Koala or newer recommended).
 2. A physical Android device running Android 12 (API 31) or higher. (The app requires actual GPS and Bluetooth hardware to function optimally).
 3. A **Google Maps API Key** with the following APIs enabled:
-   - Roads API
    - Geocoding API
    - Maps SDK for Android
 
@@ -69,14 +68,7 @@ The application is built using modern Android development practices:
    MAPS_API_KEY=YOUR_ACTUAL_API_KEY_HERE
    ```
    *This key is injected into the `AndroidManifest.xml` and `SpeedLimitRepo.kt` at compile time.*
-5. **Generate your SHA-1 Fingerprint:**
-   Run `./gradlew signingReport` in the terminal to get your SHA-1 fingerprint for your debug/release keystore.
-6. **Update SpeedLimitRepo.kt:**
-   Open `app/src/main/java/com/example/teslaheadsupdisplay/SpeedLimitRepo.kt` and replace the placeholder with your actual SHA-1 fingerprint to ensure API requests are authenticated by Google Cloud:
-   ```kotlin
-   private const val SHA1_FINGERPRINT = "YOUR_SHA1_FINGERPRINT_HERE"
-   ```
-7. Build and run the app on your physical device.
+5. Build and run the app on your physical device.
 
 ---
 
